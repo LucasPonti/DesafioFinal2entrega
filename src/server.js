@@ -52,7 +52,6 @@ io.on('connection', async socket => {
     const carrito = await carritosApi.getAll();
     //socket de productos
     socket.emit('productos' , productos);
-    console.log(productos);
 
     socket.on('new-producto', async producto => {
         productos.push(producto);
@@ -63,7 +62,6 @@ io.on('connection', async socket => {
     //------------------------------------------
     //socket de carrito
     socket.emit('carrito', carrito);
-    console.log(carrito);
 
     socket.on('new-carrito', async carrito => {
         // await carritosApi.save(carrito);
@@ -103,7 +101,6 @@ productosRouter.get('/productos', soloAdmins,async  (req, res) => {
 productosRouter.get('/productos/:id',soloAdmins ,existe, async (req, res) => {
     const id = req.params.id;
     const prod = await productosApi.getById(id)
-    console.log('aca probamos el id ' + id);
     res.json(prod);
 });
 
@@ -120,7 +117,6 @@ productosRouter.post('/productos',soloAdmins, (req, res) => {
 
 productosRouter.put('/productos/:id',soloAdmins ,existe,(req, res)=> {
     try {
-        console.log(req.body, req.params.id);
         productosApi.update(req.body, req.params.id);
         res.send(productosApi.getAll());
     } catch (error) {
@@ -171,7 +167,7 @@ carritosRouter.get('/carrito/:id/productos', async (req, res) => {
     try {
         const id = req.params.id;
         const carrito = await carritosApi.getById(id);
-        res.json(carrito); 
+        res.json(carrito.productos); 
     } catch (error) {
         console.log(error);
     }
@@ -213,7 +209,12 @@ carritosRouter.post('/carrito/:id/productos', async (req, res) => {
 
 carritosRouter.delete('/carrito/:id/productos/:id_prod', (req, res) => {
     try {
-        
+        const id = req.params.id;
+        const idProd = req.params.id_prod;
+        const carrito = carritosApi.getById(id);
+        const prod = carrito.productos.filter(p => p.id != parseInt(idProd));
+        carrito.productos = prod;
+        carritosApi.update(carrito, id);
     } catch (error) {
         console.log(error);
     }
