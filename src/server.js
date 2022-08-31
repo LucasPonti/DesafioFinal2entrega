@@ -1,34 +1,3 @@
-// //--------------------------------------------
-// // permisos de administrador
-
-// const esAdmin = true
-
-// function crearErrorNoEsAdmin(ruta, metodo) {
-//     const error = {
-//         error: -1,
-//     }
-//     if (ruta && metodo) {
-//         error.descripcion = `ruta '${ruta}' metodo '${metodo}' no autorizado`
-//     } else {
-//         error.descripcion = 'no autorizado'
-//     }
-//     return error
-// }
-
-// function soloAdmins(req, res, next) {
-//     if (!esAdmin) {
-//         res.json(crearErrorNoEsAdmin())
-//     } else {
-//         next()
-//     }
-// }
-
-
-
-
-
-
-
 const express = require('express');
 const {Server: HttpServer} = require('http');
 const {Server: IOServer} = require('socket.io');
@@ -48,10 +17,40 @@ const carritosApi = new ContenedorArchivo('dbCarritos');
 
 app.use(express.static('public'));
 
+//--------------------------------------------
+// permisos de administrador
+
+const esAdmin = true;
+
+function crearErrorNoEsAdmin(ruta, metodo) {
+    const error = {
+        error: -1,
+    }
+    if (ruta && metodo) {
+        error.descripcion = `ruta '${ruta}' metodo '${metodo}' no autorizado`
+    } else {
+        error.descripcion = 'no autorizado'
+    }
+    return error
+}
+
+function soloAdmins(req, res, next) {
+    if (!esAdmin) {
+        res.json(crearErrorNoEsAdmin())
+        console.log('No es posible modificar si no es admin');
+    } else {
+        next()
+    }
+}
+
+
+//--------------------------------------------
+//Inicializo  Sokets
 io.on('connection', async socket => {
     console.log('Nuevo cliente conectado');
     const productos = await productosApi.getAll();
-
+    const carrito = await carritosApi.getAll();
+    //socket de productos
     socket.emit('productos' , productos);
     console.log(productos);
 
@@ -61,6 +60,16 @@ io.on('connection', async socket => {
         io.sockets.emit('productos', productos);
     })
 
+    //------------------------------------------
+    //socket de carrito
+    socket.emit('carrito', carrito);
+    console.log(carrito);
+
+    socket.on('new-carrito', async carrito => {
+        // await carritosApi.save(carrito);
+        carrito.push(carrito);
+        io.sockets.emit('carrito', carrito);
+    })
 });
 
 // //--------------------------------------------
@@ -82,7 +91,7 @@ const productosRouter = new Router()
 productosRouter.use(express.json())
 productosRouter.use(express.urlencoded({extended: true}));
 
-productosRouter.get('/productos',async  (req, res) => {
+productosRouter.get('/productos', soloAdmins,async  (req, res) => {
     try {
         const prod = await productosApi.getAll();
         res.json(prod);
@@ -91,23 +100,25 @@ productosRouter.get('/productos',async  (req, res) => {
     }
 });
 
-productosRouter.get('/productos/:id', existe, async (req, res) => {
+productosRouter.get('/productos/:id',soloAdmins ,existe, async (req, res) => {
     const id = req.params.id;
     const prod = await productosApi.getById(id)
     console.log('aca probamos el id ' + id);
     res.json(prod);
 });
 
-productosRouter.post('/productos', (req, res) => {
+productosRouter.post('/productos',soloAdmins, (req, res) => {
     try {
-        productosApi.save(req.body);
+        prod = req.body;
+        prod.timestamp = Date.now();
+        productosApi.save(prod);
         res.json(req.body);
     } catch (error) {
         console.log(error);
     }
 });
 
-productosRouter.put('/productos/:id', existe,(req, res)=> {
+productosRouter.put('/productos/:id',soloAdmins ,existe,(req, res)=> {
     try {
         console.log(req.body, req.params.id);
         productosApi.update(req.body, req.params.id);
@@ -128,40 +139,94 @@ productosRouter.delete('/productos/:id', existe, (req, res) => {
 })
 
 
-// productosRouter.post('/', soloAdmins, async (req, res) => {
-    
-// });
-
-
 //--------------------------------------------
 //configuro router de carritos
 
 const carritosRouter = new Router()
+carritosRouter.use(express.json())
+carritosRouter.use(express.urlencoded({extended: true}));
 
 carritosRouter.post('/carrito', async (req, res) => {
     try {
-       await carritosApi.save() 
+       const carrito = {};
+       carrito.timestamp = Date.now();
+       carrito.productos = []; 
+       res.json(await carritosApi.save(carrito));
     } catch (error) {
       console.log(error);  
     }
 })
 
 carritosRouter.delete('/carrito/:id', (req, res) => {
-
+    try {
+        const id = req.params.id;
+        carritosApi.deleteById(id);
+        res.json(carritosApi.getAll());
+    } catch (error) {
+        console.log(error);
+    }
 })
 
-carritosRouter.get('/carrito/:id/productos', (req, res) => {
-    
+carritosRouter.get('/carrito/:id/productos', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const carrito = await carritosApi.getById(id);
+        res.json(carrito); 
+    } catch (error) {
+        console.log(error);
+    }
+   
 })
 
-carritosRouter.post('/carrito/:id/productos', (req, res) => {
-    
+carritosRouter.get('/carrito', async (req, res) => {
+    try {
+        const carritos = await carritosApi.getAll();
+        res.json(carritos);
+    } catch (error) {
+       console.log(error); 
+    }
+})
+
+carritosRouter.get('/carrito/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const carritos = await carritosApi.getById(id);
+        res.json(carritos);
+    } catch (error) {
+       console.log(error); 
+    }
+})
+
+carritosRouter.post('/carrito/:id/productos', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const prod = req.body.id;
+    const miprod = await productosApi.getById(prod);
+    const carritos = await carritosApi.getById(id);
+    carritos.productos.push(miprod);
+    carritosApi.update(carritos, id);
+    res.json(carritos);
+  } catch (error) {
+    console.log(error)
+  }
 })
 
 carritosRouter.delete('/carrito/:id/productos/:id_prod', (req, res) => {
+    try {
+        
+    } catch (error) {
+        console.log(error);
+    }
     
 })
 
+carritosRouter.delete('/carrito', async (req, res) => {
+    try {
+        carritosApi.deleteAll();
+    } catch (error) {
+        console.log(error)
+    }
+})
 // --------------------------------------------
 // configuro el servidor
 

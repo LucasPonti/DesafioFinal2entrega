@@ -66,7 +66,9 @@ function leerProductoDelFormulario() {
     const producto = {
         title: formAgregarProducto[0].value,
         price: formAgregarProducto[1].value,
-        thumbnail: formAgregarProducto[2].value
+        thumbnail: formAgregarProducto[2].value,
+        descripcion: formAgregarProducto[3].value,
+        stock: formAgregarProducto[4].value
     }
     return producto
 }
@@ -91,10 +93,12 @@ function actualizarProducto(idProd) {
 }
 
 
-function llenarFormulario(title = '', price = '', thumbnail = '') {
+function llenarFormulario(title = '', price = '', thumbnail = '', descripcion = '', stock = '') {
     formAgregarProducto[0].value = title
     formAgregarProducto[1].value = price
     formAgregarProducto[2].value = thumbnail
+    formAgregarProducto[3].value = descripcion
+    formAgregarProducto[4].value = stock
 }
 
 function makeHtmlTable(productos) {
