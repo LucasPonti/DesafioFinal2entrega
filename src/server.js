@@ -61,7 +61,7 @@ io.on('connection', async socket => {
 
     //------------------------------------------
     //socket de carrito
-    socket.emit('carrito', carrito);
+    // socket.emit('carrito', carrito);
 
     socket.on('new-carrito', async carrito => {
         // await carritosApi.save(carrito);
@@ -201,6 +201,7 @@ carritosRouter.post('/carrito/:id/productos', async (req, res) => {
     const carritos = await carritosApi.getById(id);
     carritos.productos.push(miprod);
     carritosApi.update(carritos, id);
+    res.redirect('/carrito');
     res.json(carritos);
   } catch (error) {
     console.log(error)
