@@ -1,6 +1,6 @@
-const {promises: fs} = require('fs');
+import {promises as fs} from 'fs';
 
-class Contenedor{
+class ContenedorArchivo{
     constructor(nombreArchivo){
         this.nombreArchivo = nombreArchivo; 
         this.productos = [],
@@ -31,11 +31,8 @@ class Contenedor{
 
     async getAll(){
         try {
-            const productos = await fs.readFile('./'+this.nombreArchivo+'.json', 'utf8');
-            this.productos = JSON.parse( productos);
-            console.log(JSON.stringify(this.productos));
-            this.id = this.productos.length + 1;
-            return JSON.parse(JSON.stringify(this.productos));
+            const productos = await fs.readFile('./dbProductos.json', 'utf8');
+            return JSON.parse(productos);
         } catch (error) {
             console.log('Hubo un error en GetAll');
         }
@@ -69,4 +66,4 @@ class Contenedor{
     }
 }
 
-module.exports = Contenedor;
+export default ContenedorArchivo;

@@ -1,9 +1,8 @@
-const express = require('express');
-const {Server: HttpServer} = require('http');
-const {Server: IOServer} = require('socket.io');
+import express from 'express';
+import {Server as HttpServer} from 'http';
+import {Server as IOServer} from 'socket.io';
 const { Router } = express; 
-
-const ContenedorArchivo = require('./contenedores/ContenedorArchivo.js');
+import { productosDao as productosApi, carritosDao as carritosApi } from './daos/index.js';
 
 
 //--------------------------------------------
@@ -11,9 +10,6 @@ const ContenedorArchivo = require('./contenedores/ContenedorArchivo.js');
 const app = express();
 const httpServer = new HttpServer(app);
 const io = new IOServer(httpServer);
-
-const productosApi = new ContenedorArchivo('dbProductos');
-const carritosApi = new ContenedorArchivo('dbCarritos');
 
 app.use(express.static('public'));
 
@@ -51,12 +47,12 @@ io.on('connection', async socket => {
     const productos = await productosApi.getAll();
     const carrito = await carritosApi.getAll();
     //socket de productos
-    socket.emit('productos' , productos);
+    socket.emit('productos' , await productosApi.getAll());
 
     socket.on('new-producto', async producto => {
         productos.push(producto);
-        // await productosApi.save(producto); 
-        io.sockets.emit('productos', productos);
+        await productosApi.save(producto); 
+        io.sockets.emit('productos', await productosApi.getAll());
     })
 
     //------------------------------------------
@@ -92,7 +88,7 @@ productosRouter.use(express.urlencoded({extended: true}));
 productosRouter.get('/productos', soloAdmins,async  (req, res) => {
     try {
         const prod = await productosApi.getAll();
-        res.json(prod);
+        res.send(prod);
     } catch (error) {
         console.log(error);
     }
@@ -104,31 +100,34 @@ productosRouter.get('/productos/:id',soloAdmins ,existe, async (req, res) => {
     res.json(prod);
 });
 
-productosRouter.post('/productos',soloAdmins, (req, res) => {
+productosRouter.post('/productos',soloAdmins, async (req, res) => {
     try {
-        prod = req.body;
+        const prod = req.body;
         prod.timestamp = Date.now();
-        productosApi.save(prod);
+        // await prod.save(prod);
+        await productosApi.save(prod);
         res.json(req.body);
     } catch (error) {
         console.log(error);
     }
 });
 
-productosRouter.put('/productos/:id',soloAdmins ,existe,(req, res)=> {
+productosRouter.put('/productos/:id',soloAdmins ,existe, async(req, res)=> {
     try {
-        productosApi.update(req.body, req.params.id);
-        res.send(productosApi.getAll());
+        await productosApi.update(req.body, req.params.id);
+        // await productosDaoApi.update(req.body, req.params.id);
+        res.send(await productosApi.getAll());
     } catch (error) {
         console.log(error);
     }
 });
 
-productosRouter.delete('/productos/:id', existe, (req, res) => {
+productosRouter.delete('/productos/:id', existe, async(req, res) => {
     try {
         const id = req.params.id;
-        productosApi.deleteById(id);
-        res.json(productosApi.getAll());
+        await productosApi.deleteById(id);
+        // await productosDaoApi.deleteById(id);
+        res.json(await prod.getAll());
     } catch (error) {
         console.log(error);
     }
@@ -153,11 +152,11 @@ carritosRouter.post('/carrito', async (req, res) => {
     }
 })
 
-carritosRouter.delete('/carrito/:id', (req, res) => {
+carritosRouter.delete('/carrito/:id', async (req, res) => {
     try {
         const id = req.params.id;
-        carritosApi.deleteById(id);
-        res.json(carritosApi.getAll());
+        await carritosApi.deleteById(id);
+        res.json(await carritosApi.getAll());
     } catch (error) {
         console.log(error);
     }
@@ -200,7 +199,7 @@ carritosRouter.post('/carrito/:id/productos', async (req, res) => {
     const miprod = await productosApi.getById(prod);
     const carritos = await carritosApi.getById(id);
     carritos.productos.push(miprod);
-    carritosApi.update(carritos, id);
+    ContenedorArchivoCarr.update(carritos, id);
     res.redirect('/carrito');
     res.json(carritos);
   } catch (error) {
@@ -208,14 +207,16 @@ carritosRouter.post('/carrito/:id/productos', async (req, res) => {
   }
 })
 
-carritosRouter.delete('/carrito/:id/productos/:id_prod', (req, res) => {
+carritosRouter.delete('/carrito/:id/productos/:id_prod',async  (req, res) => {
     try {
         const id = req.params.id;
         const idProd = req.params.id_prod;
-        const carrito = carritosApi.getById(id);
-        const prod = carrito.productos.filter(p => p.id != parseInt(idProd));
+        const carrito = await carritosApi.getById(id);
+        console.log('AQUI CARRITO', carrito);
+        const prod = carrito.productos.filter(p => p.id != idProd);
         carrito.productos = prod;
-        carritosApi.update(carrito, id);
+        // carritosApi.update(carrito, id);
+        res.json(carrito);
     } catch (error) {
         console.log(error);
     }
@@ -224,7 +225,7 @@ carritosRouter.delete('/carrito/:id/productos/:id_prod', (req, res) => {
 
 carritosRouter.delete('/carrito', async (req, res) => {
     try {
-        carritosApi.deleteAll();
+        await carritosApi.deleteAll();
     } catch (error) {
         console.log(error)
     }
@@ -239,4 +240,4 @@ app.use(express.urlencoded({ extended: true }))
 app.use('/api', productosRouter);
 app.use('/api', carritosRouter);
 
-module.exports = httpServer;
+export default  httpServer;
